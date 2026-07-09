@@ -145,7 +145,7 @@ jobs:
         # 只允许触发者本人（用你 GitHub 账号里登记的 SSH 公钥认证）连接。
         # 如果你的 GitHub 账号没有添加 SSH key，这里要改成 false，
         # 但公开仓库的日志任何人可见，false 意味着别人也可能抢先连上，务必注意
-        limit-access-to-actor: true
+        limit-access-to-actor: false
 
     - name: Download package
       id: package
