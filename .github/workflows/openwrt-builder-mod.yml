@@ -9,17 +9,39 @@
 # This is free software, licensed under the MIT License.
 #
 
-name: OpenWrt Builder Mod
+name: OpenWrt Builder
 
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions (for make menuconfig)'
+        required: false
+        default: true
+        type: boolean
+      load_config:
+        description: 'Load files/ and config from repo'
+        required: false
+        default: false
+        type: boolean
+      config_file:
+        description: 'Config filename in repo (default: .config)'
+        required: false
+        default: '.config'
+        type: string
+      load_custom_feeds:
+        description: 'Load custom feeds (feeds.conf.default + diy-part1.sh)'
+        required: false
+        default: true
+        type: boolean
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
+  # 手动触发时可自定义文件名；repository_dispatch 触发时 inputs 为空，回退到 .config
+  CONFIG_FILE: ${{ inputs.config_file != '' && inputs.config_file || '.config' }}
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
   UPLOAD_BIN_DIR: false
@@ -84,6 +106,9 @@ jobs:
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Load custom feeds
+      # 手动触发且取消勾选时跳过（用 lede 自带的 feeds 配置，也不执行 diy-part1.sh）；
+      # repository_dispatch 触发时 inputs 为空(null)，null != false 成立，默认执行
+      if: inputs.load_custom_feeds != false
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
         chmod +x $DIY_P1_SH
@@ -97,12 +122,30 @@ jobs:
       run: cd openwrt && ./scripts/feeds install -a
 
     - name: Load custom configuration
+      env:
+        # 手动触发且取消勾选 → false；repository_dispatch 触发时 inputs 为空(null)，
+        # null != false 成立 → 默认加载
+        LOAD_CONFIG: ${{ inputs.load_config != false }}
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        if [ "$LOAD_CONFIG" = "true" ]; then
+          [ -e files ] && mv files openwrt/files
+          [ -e "$CONFIG_FILE" ] && mv "$CONFIG_FILE" openwrt/.config
+        else
+          echo "Skip loading files/ and $CONFIG_FILE from repo"
+        fi
+        # diy-part2.sh 始终执行（与是否加载配置无关）
         chmod +x $DIY_P2_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: SSH connection to Actions
+      uses: mxschmitt/action-tmate@v3
+      if: inputs.ssh == true
+      with:
+        # 只允许触发者本人（用你 GitHub 账号里登记的 SSH 公钥认证）连接。
+        # 如果你的 GitHub 账号没有添加 SSH key，这里要改成 false，
+        # 但公开仓库的日志任何人可见，false 意味着别人也可能抢先连上，务必注意
+        limit-access-to-actor: true
 
     - name: Download package
       id: package
