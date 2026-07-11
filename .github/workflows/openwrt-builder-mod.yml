@@ -37,8 +37,8 @@ on:
         type: boolean
 
 env:
-  REPO_URL: https://github.com/coolsnowwolf/lede
-  REPO_BRANCH: master
+  REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-24.10
+  REPO_BRANCH: openwrt-24.10-6.6
   FEEDS_CONF: feeds.conf.default
   # 手动触发时可自定义文件名；repository_dispatch 触发时 inputs 为空，回退到 .config
   CONFIG_FILE: ${{ inputs.config_file != '' && inputs.config_file || '.config' }}
